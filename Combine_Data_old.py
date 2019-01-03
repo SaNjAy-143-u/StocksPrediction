@@ -20,30 +20,26 @@ class DataCombiner:
         print("load Stocks")
         df_stocks = pandas.read_csv(self.csv_stocks_filename)
         # Make the CSV smaller to filter to the date ranges of the available news
-        df_stocks = df_stocks[(df_stocks['Date'] > '2009-08-15')
-                              & (df_stocks['Date'] < '2009-09-11')]
+        df_stocks = df_stocks[(df_stocks['Date'] > '2014-03-09')
+                              & (df_stocks['Date'] < '2014-08-29')]
         print("load News")
-        df_news = pandas.read_csv(self.csv_news_filename,sep=',').fillna('2009-08-15')
-        # if self.category is not None:
-        #     print("Filter Category")
-        #     df_news_filtered = df_news[df_news['CATEGORY'] == self.category]
-        df_news_filtered=df_news
+        df_news = pandas.read_csv(self.csv_news_filename,sep=',').fillna('')
+        if self.category is not None:
+            print("Filter Category")
+            df_news_filtered = df_news[df_news['CATEGORY'] == self.category]
+
         if self.news_filter is not None:
             print("Filter News")
-            df_news_filtered = df_news[df_news['Title'].str.contains(self.news_filter, case=False)]
+            df_news_filtered = df_news[df_news['TITLE'].str.contains(self.news_filter, case=False)]
         print("Normalizing")
         # Normalize headline
-        df_news_filtered['normalized_headline'] = df_news['Title'].apply(
+        df_news_filtered['normalized_headline'] = df_news['TITLE'].apply(
             self.__normalize_headline)
-
 
         print("Converting Timestamps")
         # Convert the timestamps to same time format as the stocks
-        df_news['TIMEST']=df_news['Date'].apply(lambda x:str(x[:10]))
-        df_news_filtered['TIMESTAMP'] = df_news['TIMEST'].apply(lambda x:datetime.strptime(x,'%Y-%m-%d').strftime('%Y-%m-%d'))
-
-        # df_news_filtered['TIMESTAMP'] = df_news['Date'].apply(
-        #     lambda x: datetime.fromtimestamp(int(int(x) / 1000)).strftime('%Y-%m-%d'))
+        df_news_filtered['TIMESTAMP'] = df_news['TIMESTAMP'].apply(
+            lambda x: datetime.fromtimestamp(int(int(x) / 1000)).strftime('%Y-%m-%d'))
         df_news_filtered=df_news_filtered.groupby('TIMESTAMP')['normalized_headline'].apply(' '.join).reset_index()
         df_news_filtered['price'] = df_news_filtered['TIMESTAMP'].apply(
             lambda row: self.__findStockPrice(row, df_stocks)).astype(np.int32)
@@ -127,22 +123,22 @@ class DataCombiner:
         print("Saved To {}".format(filename))
 
 if __name__ == '__main__':
-    news = "./quartznews.csv"
-    # DataCombiner("./MSFT.csv", news, category=None,news_filter='Microsoft').to_csv("./combined_MSFT_microsoft_news.csv")
+    news = "./uci-news-aggregator.csv"
+    DataCombiner("./MSFT.csv", news, category=None,news_filter='Microsoft').to_csv("./combined_MSFT_microsoft_news.csv")
     DataCombiner("./MSFT.csv", news, category='t',).to_csv("./combined_msft_tech_news.csv")
-    # DataCombiner("./MSFT.csv", news, category='t',news_filter='Microsoft').to_csv("./combined_MSFT_microsoft_tech_news.csv")
+    DataCombiner("./MSFT.csv", news, category='t',news_filter='Microsoft').to_csv("./combined_MSFT_microsoft_tech_news.csv")
 
-    # DataCombiner("./GOOG.csv", news, category=None,news_filter='Google').to_csv("./combined_GOOG_google_news.csv")
+    DataCombiner("./GOOG.csv", news, category=None,news_filter='Google').to_csv("./combined_GOOG_google_news.csv")
     DataCombiner("./GOOG.csv", news, category='t',).to_csv("./combined_GOOG_tech_news.csv")
-    # DataCombiner("./GOOG.csv", news, category='t',news_filter='Google').to_csv("./combined_GOOG_google_tech_news.csv")
+    DataCombiner("./GOOG.csv", news, category='t',news_filter='Google').to_csv("./combined_GOOG_google_tech_news.csv")
 
-    # DataCombiner("./IBM.csv", news, category=None,news_filter='IBM').to_csv("./combined_IBM_IBM_news.csv")
+    DataCombiner("./IBM.csv", news, category=None,news_filter='IBM').to_csv("./combined_IBM_IBM_news.csv")
     DataCombiner("./IBM.csv", news, category='t',).to_csv("./combined_IBM_tech_news.csv")
-    # DataCombiner("./IBM.csv", news, category='t',news_filter='IBM').to_csv("./combined_IBM_IBM_tech_news.csv")
+    DataCombiner("./IBM.csv", news, category='t',news_filter='IBM').to_csv("./combined_IBM_IBM_tech_news.csv")
 
-    # DataCombiner("./AAPL.csv", news, category=None,news_filter='Apple').to_csv("./combined_AAPL_Apple_news.csv")
+    DataCombiner("./AAPL.csv", news, category=None,news_filter='Apple').to_csv("./combined_AAPL_Apple_news.csv")
     DataCombiner("./AAPL.csv", news, category='t',).to_csv("./combined_AAPL_tech_news.csv")
-    # DataCombiner("./AAPL.csv", news, category='t',news_filter='Apple').to_csv("./combined_AAPL_Apple_tech_news.csv")
+    DataCombiner("./AAPL.csv", news, category='t',news_filter='Apple').to_csv("./combined_AAPL_Apple_tech_news.csv")
     
 
     

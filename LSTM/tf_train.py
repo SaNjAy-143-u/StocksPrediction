@@ -1,8 +1,11 @@
 # LSTM and CNN for sequence classification in the IMDB dataset
 import numpy
-from keras.models import Sequential
+from keras.utils import plot_model
+from keras.models import Sequential,Model
 from keras.layers import Dense
 from keras.layers import LSTM
+from keras.layers import Input
+from keras.layers.merge import concatenate
 from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D
 from keras.layers.embeddings import Embedding
@@ -27,37 +30,65 @@ def train(filename, model_name, day='today'):
     data = TF_Data(filename, top_words=top_words)
     pickle.dump(data, open(filename.replace(".csv", ".p"), "wb"))
     # load the dataset but only keep the top n words, zero the rest
-    (X_train, y_train), (X_test, y_test) = data.load_data(day=day)
-    print(X_train.shape)
-
+    (total_price_train,total_X_train, total_y_train), (price_test,X_test, y_test) = data.load_data(day=day)
+    
     # truncate and pad input sequences
-    max_review_length = 100
-    X_train = sequence.pad_sequences(X_train, maxlen=max_review_length)
+    max_review_length = 10000
+    total_X_train = sequence.pad_sequences(total_X_train, maxlen=max_review_length)
     X_test = sequence.pad_sequences(X_test, maxlen=max_review_length)
     # create the model
     embedding_vecor_length = 32
-    model = Sequential()
-    model.add(Embedding(top_words, embedding_vecor_length, input_length=max_review_length))
-    model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(LSTM(100))
-    model.add(Dense(3, activation='sigmoid'))
-    optimizer = Adadelta()
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    #news sentiments
+    input1=Input(shape=(max_review_length,))
+    embed=Embedding(top_words, embedding_vecor_length)(input1)
+    conv=Conv1D(filters=32, kernel_size=3, padding='same', activation='relu')(embed)
+    pool1=MaxPooling1D(pool_size=2)(conv)
+    lstm_news=LSTM(100,return_sequences=True)(pool1)
+    
+    #50 stocks as input
+    # input2=Input(shape=(50,1,5,))
+    # lstm_price=[]
+    # for i in range(50):
+    #     lstm_price.append(LSTM(100,return_sequences=True)(input2[i]))
+    # concat_stocks=concatenate(lstm_price,axis=1)
+
+    #stock price history
+    input2=Input(shape=(500,1,))
+    lstm_price=LSTM(100,return_sequences=True)(input2)
+    #concatenation of both
+    concat=concatenate([lstm_news,lstm_price],axis=1)
+    final_LSTM=LSTM(100)(concat)
+    dense=Dense(32,activation='relu')(final_LSTM)
+    final=Dense(8,activation='softmax')(dense)
+    model=Model(inputs=[input1,input2],outputs=final)
+    optimizer = Adam(lr=1e-3)
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
     if isfile(model_name) and False:
         print('Checkpoint Loaded')
         model = load_model(model_name)
     print(model.summary())
-
+    plot_model(model, to_file='convolutional_neural_network.png')
     # model.fit(X_train, y_train, epochs=3, batch_size=1, callbacks=[checkpoint, earlyStopping, reduceLR])
-    model.fit(X_train, y_train, epochs=1, batch_size=1)
+    start=0
+    siz=int(len(total_price_train)/5)
+    end=siz
+    for i in range(5):
+        if isfile(model_name):
+            print('Checkpoint Loaded')
+            model = load_model(model_name)
+        price_train=total_price_train[start:end]
+        X_train=total_X_train[start:end]
+        y_train=total_y_train[start:end]
+        model.fit([X_train,price_train], y_train, epochs=1, batch_size=1)
+        model.save(model_name)
+        start=end+1
+        end=start+siz
     # Final evaluation of the model
     #model = load_model(model_name)
-    print(X_test)
-    print(y_test)
-    scores = model.evaluate(X_test, y_test, verbose=1)
+    # print(X_test)
+    # print(y_test)
+    scores = model.evaluate([X_test,price_test], y_test, verbose=1)
     fd = open('accuracy.csv','a')
-    print(scores)
     CsvRow = [filename, day, "Accuracy: %.2f%%" % (scores[1]*100)]
     print(CsvRow)
     fd.write(", ".join(CsvRow) + "\n")
